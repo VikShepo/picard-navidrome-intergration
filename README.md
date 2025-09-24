@@ -33,10 +33,12 @@ Bring your Navidrome library into MusicBrainz Picard. This plugin adds a Navidro
   - Non-destructive preview; only changes server order when you choose to save
 
 - **Library browser**
-  - Live progress dialog while fetching: “Fetched X of Y”
-  - “Filter ▼” menu to hide/show columns via checkboxes
+  - **Accurate progress tracking**: Progress bar shows true 100% completion
+  - **Smart caching**: Second and subsequent fetches are dramatically faster
+  - **Enhanced progress dialog**: Shows percentage, current/total counts, and window title updates
+  - "Filter ▼" menu to hide/show columns via checkboxes
   - Search box filters across visible columns
-  - First column shows cleaned file “dataname” (removes prefixes like “NN-NN - ”)
+  - First column shows cleaned file "dataname" (removes prefixes like "NN-NN - ")
   - Columns adjustable (resizable & re-orderable by drag)
   - Rows are height-adjustable; local reordering (does not impact server order)
   - Create playlist from selected rows; IDs are taken from table order and unaffected by sorting
@@ -91,7 +93,9 @@ Options → Plugins → Navidrome:
 - Password (token auth is derived internally)
 - Verify SSL (recommended)
 - Save credentials (optional)
-- Buttons: Test Connection, Edit Playlists…, Create Playlist from Library…, About…
+- **Caching settings**: Enable caching checkbox + TTL input with help tooltip (?) symbol
+- **Cache TTL**: How long to keep cached data (default: 300 = 5 minutes)
+- Buttons: Test Connection, Edit Playlists…, Create Playlist from Library…, Clear Cache, About…
 
 ---
 
@@ -102,10 +106,13 @@ Options → Plugins → Navidrome:
 
 ### Browse your library and create a playlist
 1) Navidrome → Create Playlist from Navidrome Library…
-2) Use Filter ▼ to show/hide columns; type in the search box to narrow results.
-3) Select rows using the leftmost checkbox column; adjust column widths and row heights as needed.
-4) Click “Create playlist” to open the review dialog.
-5) Use **≡** drag handles to reorder tracks; confirm to send the playlist to Navidrome.
+2) **Progress tracking**: Watch accurate progress bar (0% → 100%) with percentage display
+3) **First fetch**: Normal speed (populates cache)
+4) **Second fetch**: Much faster! (served from cache)
+5) Use Filter ▼ to show/hide columns; type in the search box to narrow results.
+6) Select rows using the leftmost checkbox column; adjust column widths and row heights as needed.
+7) Click "Create playlist" to open the review dialog.
+8) Use **≡** drag handles to reorder tracks; confirm to send the playlist to Navidrome.
 
 ### Edit playlists
 1) Navidrome → Edit Playlists in Navidrome…
@@ -136,7 +143,10 @@ Options → Plugins → Navidrome:
 - “No playlists found”
   - Verify the account has access and that playlists exist on the server.
 - Slow fetching
-  - Large libraries can take time; the progress dialog shows status. Try narrowing results via Filter/Search.
+  - Large libraries can take time; the progress dialog shows accurate percentage and status.
+  - **First fetch is slower** (populates cache), but **subsequent fetches are much faster**.
+  - Progress bar now shows true 100% completion when all songs are fetched.
+  - If cache seems stale, use "Clear Cache" button in options.
 - Playlist names rejected
   - Ensure a non-empty name and required permissions on the server.
 
