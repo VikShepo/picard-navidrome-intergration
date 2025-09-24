@@ -1,9 +1,38 @@
-Copyright (c) 2025 [picard-navidrome-integration.py]
+Software License Agreement (Personal, Non-Commercial Use)
 
-Permission is granted to use this software for personal, non-commercial purposes free of charge. 
+Copyright (c) 2025 [picard-navidrome-integration.py]. All rights reserved.
 
-Redistribution, modification, sublicensing, or selling of this software, in whole or in part, is strictly prohibited without explicit written permission from the author.
+1. Definitions
+"Software" means the program and all associated files, scripts, documentation, updates, and other materials distributed with it. "Author" means the copyright holder identified above. "Licensee" means the individual who lawfully obtains a copy of the Software and agrees to be bound by this license.
 
-Donations to support development are appreciated but not required.
+2. Grant of License
+Subject to strict compliance with this Agreement, the Author grants the Licensee a personal, non-exclusive, non-transferable, non-sublicensable, revocable, worldwide, royalty-free license to install and use the Software solely for the Licensee's personal, non-commercial purposes.
+
+3. Permitted Uses
+The Licensee may (a) install and run the Software on devices owned or controlled by the Licensee; and (b) make a reasonable number of backup or archival copies, provided all proprietary notices are preserved and such copies are not shared with any third party.
+
+4. Prohibited Uses
+Except with the Author's prior express written permission, the Licensee shall not (a) distribute, publish, transmit, make available, or otherwise provide the Software to any third party; (b) sell, rent, lease, lend, host, or provide the Software as a service; (c) modify, adapt, translate, or create derivative works of the Software; (d) sublicense the Software or any rights herein; (e) reverse engineer, decompile, disassemble, or otherwise attempt to derive the source code or underlying ideas of the Software, except to the extent any such restriction is prohibited by applicable law. Redistribution, modification, sublicensing, or selling of the Software, in whole or in part, is strictly prohibited without the Author's explicit written permission.
+
+5. Ownership; Reservation of Rights
+The Software is licensed, not sold. The Author retains all right, title, and interest in and to the Software, including all intellectual property rights therein. Except for the limited license expressly granted, no other rights are granted by implication, estoppel, or otherwise.
+
+6. Donations; No Support Obligation
+Donations to support development are appreciated but not required and do not grant the Licensee any additional rights or warranties. The Author has no obligation to provide maintenance, support, updates, patches, or enhancements.
+
+7. Disclaimer of Warranties
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTY OF ANY KIND, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE. WITHOUT LIMITATION, ALL IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT ARE DISCLAIMED.
+
+8. Limitation of Liability
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF PROFITS, REVENUE, DATA, GOODWILL, OR OTHER INTANGIBLE LOSSES, ARISING OUT OF OR RELATING TO THE SOFTWARE OR THIS AGREEMENT, WHETHER BASED IN CONTRACT, TORT (INCLUDING NEGLIGENCE), STRICT LIABILITY, OR OTHERWISE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. THE AUTHOR'S TOTAL CUMULATIVE LIABILITY FOR ANY CLAIMS ARISING OUT OF OR RELATING TO THE SOFTWARE SHALL NOT EXCEED THE AMOUNTS (IF ANY) PAID BY THE LICENSEE FOR THE SOFTWARE.
+
+9. Term and Termination
+This Agreement is effective upon the Licensee's first use of the Software and shall continue until terminated. The Author may terminate this Agreement immediately upon notice if the Licensee breaches any term. Upon termination, the Licensee shall cease all use of the Software and destroy all copies. Sections 5 through 11 shall survive termination.
+
+10. Assignment
+The Licensee may not assign, transfer, or delegate this Agreement or any rights or obligations hereunder, whether by operation of law or otherwise, without the Author's prior written consent. Any attempted assignment in violation of the foregoing shall be null and void.
+
+11. Miscellaneous
+No waiver of any term will be deemed a further or continuing waiver of such term or any other term. If any provision is held invalid or unenforceable, it will be enforced to the maximum extent permissible, and the remaining provisions will remain in full force and effect. This Agreement constitutes the entire agreement between the parties with respect to the Software and supersedes all prior or contemporaneous understandings. Any amendment must be in a writing signed by the Author.
 
 
