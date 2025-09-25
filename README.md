@@ -7,6 +7,8 @@ Bring your Navidrome library into MusicBrainz Picard. This plugin adds a Navidro
 - **Options page**: Server URL, username, password, SSL verification, optional credential saving, connection test
 - **Library browser**: Filter menu, search, adjustable columns/rows, live progress, local reordering, playlist creation
 - **Playlists browser**: View playlists, preview and reorder tracks locally, then save back safely
+- **Smart caching system**: Dramatically faster subsequent library fetches with configurable TTL
+- **Enhanced UX**: Automatic saving, dynamic track counter, streamlined context menu, improved connection feedback
 
 ---
 
@@ -36,6 +38,7 @@ Bring your Navidrome library into MusicBrainz Picard. This plugin adds a Navidro
   - **Accurate progress tracking**: Progress bar shows true 100% completion
   - **Smart caching**: Second and subsequent fetches are dramatically faster
   - **Enhanced progress dialog**: Shows percentage, current/total counts, and window title updates
+  - **Dynamic track counter**: Real-time display of "X of Y tracks selected" below action buttons
   - "Filter ▼" menu to hide/show columns via checkboxes
   - Search box filters across visible columns
   - First column shows cleaned file "dataname" (removes prefixes like "NN-NN - ")
@@ -50,6 +53,10 @@ Bring your Navidrome library into MusicBrainz Picard. This plugin adds a Navidro
 - **Error handling and UX**
   - Clear error dialogs for network/API problems
   - Responsive UI; avoids blocking Picard during network operations
+  - **Automatic saving**: Connect dialog saves settings automatically when closed (no manual Save button)
+  - **Enhanced connection feedback**: Success messages show username, error messages provide clear guidance
+  - **Streamlined context menu**: Removed redundant actions, keeping only essential playlist creation
+  - **Clean playlist messages**: Removed technical playlist IDs from user-facing success messages
 
 - **Security & privacy**
   - Token auth, optional SSL verify
@@ -74,7 +81,7 @@ Bring your Navidrome library into MusicBrainz Picard. This plugin adds a Navidro
 
 ## Installation
 
-1) Download the single-file plugin (`picard_navidrome_integration_(0.6.0)-stable.py`).
+1) Download the single-file plugin (`picard_navidrome_integration_(0.7.1)-stable.py`).
 2) Open Picard and go to: Help → Open plugin folder (this opens your Picard plugins directory).
 3) Place the plugin file into that folder and restart Picard.
 4) Enable the plugin in Picard: Options → Plugins → check “Navidrome (Subsonic) Integration”.
@@ -102,7 +109,9 @@ Options → Plugins → Navidrome:
 ## Usage
 
 ### Connect to Navidrome
-- Use Navidrome → Connect… or open Options → Plugins → Navidrome and press “Test Connection”.
+- Use Navidrome → Connect… or open Options → Plugins → Navidrome and press "Test Connection".
+- **Automatic saving**: Settings are saved automatically when you close the Connect dialog.
+- **Enhanced feedback**: Success messages show your username, error messages provide clear guidance.
 
 ### Browse your library and create a playlist
 1) Navidrome → Create Playlist from Navidrome Library…
@@ -110,9 +119,10 @@ Options → Plugins → Navidrome:
 3) **First fetch**: Normal speed (populates cache)
 4) **Second fetch**: Much faster! (served from cache)
 5) Use Filter ▼ to show/hide columns; type in the search box to narrow results.
-6) Select rows using the leftmost checkbox column; adjust column widths and row heights as needed.
-7) Click "Create playlist" to open the review dialog.
-8) Use **≡** drag handles to reorder tracks; confirm to send the playlist to Navidrome.
+6) Select rows using the leftmost checkbox column; watch the dynamic counter showing "X of Y tracks selected".
+7) Adjust column widths and row heights as needed.
+8) Click "Create playlist" to open the review dialog.
+9) Use **≡** drag handles to reorder tracks; confirm to send the playlist to Navidrome.
 
 ### Edit playlists
 1) Navidrome → Edit Playlists in Navidrome…

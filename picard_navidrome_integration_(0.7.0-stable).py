@@ -56,7 +56,7 @@ PLUGIN_DESCRIPTION = (
     "columns/rows and live progress, smart caching for faster subsequent fetches, local reordering "
     "and playlist creation with a review dialog. Compatibility: Picard API 2.0–2.14; Subsonic 1.16.1+ (Navidrome); Docker Picard supported."
 )
-PLUGIN_VERSION = "0.7.0"
+PLUGIN_VERSION = "0.7.1"
 PLUGIN_API_VERSIONS = [
     "2.0",
     "2.1",
@@ -835,7 +835,8 @@ class NavidromeOptionsPage(OptionsPage):
         verify_ssl = bool(self.verify_ssl.isChecked())
 
         if not base_url or not username or not password:
-            QMessageBox.warning(None, "Navidrome", "Please fill in Server URL, Username and Password.")
+            QMessageBox.warning(self, "Navidrome", "Please fill in Server URL, Username and Password.")
+            self._update_conn_status(connected=False)
             return
 
         try:
@@ -847,12 +848,14 @@ class NavidromeOptionsPage(OptionsPage):
                 verify_ssl=verify_ssl,
             )
             if client.ping():
-                self.save()
                 self._update_conn_status(connected=True)
+                QMessageBox.information(self, "Navidrome", f"Logged successfully as {username}.")
             else:
                 self._update_conn_status(connected=False)
+                QMessageBox.critical(self, "Navidrome", "Connection failed. Please check your credentials and server URL.")
         except Exception as exc:
-            QMessageBox.critical(None, "Navidrome", f"Connection error: {exc}")
+            self._update_conn_status(connected=False)
+            QMessageBox.critical(self, "Navidrome", f"Connection error: {exc}")
 
     def _open_browser(self) -> None:
         base_url = self.base_url.text().strip()
@@ -2644,6 +2647,18 @@ class NavidromeLibraryDialog(QDialog):
         layout.addLayout(lists_layout)
         layout.addLayout(buttons_row)
 
+        # Dynamic counter showing selected tracks
+        self.counter_label = QLabel("0 of 0 tracks selected", self)
+        try:
+            self.counter_label.setAlignment(Qt.AlignCenter)  # type: ignore
+            font = self.counter_label.font()
+            font.setBold(True)
+            self.counter_label.setFont(font)
+            self.counter_label.setStyleSheet("color: #1976d2; font-size: 14px; margin: 5px;")
+        except Exception:
+            pass
+        layout.addWidget(self.counter_label)
+
         self.info_label = QLabel("", self)
         layout.addWidget(self.info_label)
 
@@ -2824,6 +2839,10 @@ class NavidromeLibraryDialog(QDialog):
             selected = len(self._checked_ids)
         total = len(self._songs)
         self.setWindowTitle(f"Select Tracks from Navidrome Library — {selected} selected / {total} total")
+        try:
+            self.counter_label.setText(f"{selected} of {total} tracks selected")
+        except Exception:
+            pass
         try:
             self.info_label.setText(f"Visible: {len(self._visible_rows)} / Total: {total}")
         except Exception:
@@ -3124,7 +3143,7 @@ class NavidromeLibraryDialog(QDialog):
             QMessageBox.critical(self, "Navidrome", f"Failed to create playlist: {exc}")
             return
         if pl_id:
-            QMessageBox.information(self, "Navidrome", f"Playlist '{name}' created (id: {pl_id}).")
+            QMessageBox.information(self, "Navidrome", f"Playlist '{name}' created.")
         else:
             QMessageBox.information(self, "Navidrome", f"Playlist '{name}' created.")
         # Clear tracking after successful create
@@ -3370,6 +3389,7 @@ class NavidromeLibraryDialog(QDialog):
             except Exception:
                 pass
             self._check_row(r, True)
+        self._update_counts()
 
     # Default event handling
     def event(self, e):  # type: ignore[override]
@@ -3432,20 +3452,20 @@ class NavidromeOptionsDialog(QDialog):
         v = QVBoxLayout(self)
         v.addWidget(self.page)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Close, self)
+        buttons = QDialogButtonBox(QDialogButtonBox.Close, self)
         try:
-            buttons.accepted.connect(self._save)  # type: ignore[attr-defined]
             buttons.rejected.connect(self.reject)  # type: ignore[attr-defined]
         except Exception:
             pass
         v.addWidget(buttons)
 
-    def _save(self) -> None:
+    def closeEvent(self, event) -> None:
+        """Automatically save settings when dialog is closed."""
         try:
             self.page.save()
-            QMessageBox.information(self, "Navidrome", "Settings saved.")
-        except Exception as exc:
-            QMessageBox.critical(self, "Navidrome", f"Failed to save settings: {exc}")
+        except Exception:
+            pass
+        super().closeEvent(event)
 
 
 # -----------------------------
@@ -3794,6 +3814,19 @@ class NavidromeChangelogDialog(QDialog):
                 changelog_lines.append(f"  - {b}")
             changelog_lines.append("")
 
+        add_version(
+            "0.7.1",
+            [
+                "🎨 UI Polish: Removed playlist ID from creation success messages for cleaner UX",
+                "📊 NEW: Dynamic track counter in library browser showing 'X of Y tracks selected'",
+                "💾 UX Improvement: Automatic saving in Connect dialog - no more manual Save button",
+                "🔧 UX Improvement: Enhanced connection feedback with success/error messages",
+                "🧹 Context Menu Cleanup: Removed 'List Playlists' and 'Browse Library' from right-click menu",
+                "🎯 Streamlined UI: Only essential playlist creation actions remain in context menu",
+                "🔧 Technical: Improved connection status handling and user feedback",
+                "Bugfixes and improvements"
+            ],
+        )
         add_version(
             "0.7.0",
             [
@@ -4452,23 +4485,9 @@ try:
 except Exception as exc:
     log.error("Navidrome plugin: Failed to register options page: %r", exc)
 
-try:
-    register_album_action(NavidromeFetchPlaylistsAction())
-    register_track_action(NavidromeFetchPlaylistsAction())
-except Exception as exc:
-    log.error("Navidrome plugin: Failed to register playlist actions: %r", exc)
+# NavidromeFetchPlaylistsAction registration removed per user request
 
-try:
-    # Register a library browser opener too
-    class NavidromeBrowseAction(BaseAction):
-        NAME = "navidrome_browse_library"
-        TITLE = "Create Playlist from Navidrome Library..."
-        def callback(self, objs) -> None:
-            _open_library_dialog()
-    register_album_action(NavidromeBrowseAction())
-    register_track_action(NavidromeBrowseAction())
-except Exception as exc:
-    log.error("Navidrome plugin: Failed to register library action: %r", exc)
+# NavidromeBrowseAction registration removed per user request
 
 try:
     # Create playlist from selection action
@@ -4661,7 +4680,7 @@ try:
                     QMessageBox.critical(parent, "Navidrome", f"Failed to create playlist: {exc}")
                     return
                 if pl_id:
-                    QMessageBox.information(parent, "Navidrome", f"Playlist '{name}' created (id: {pl_id}).")
+                    QMessageBox.information(parent, "Navidrome", f"Playlist '{name}' created.")
                 else:
                     QMessageBox.information(parent, "Navidrome", f"Playlist '{name}' created.")
                 return
