@@ -194,59 +194,34 @@ except Exception:
 # Navidrome Cache System
 # -----------------------------
 class NavidromeCache:
-    """Simple in-memory cache for Navidrome API responses with TTL."""
+    """Simple in-memory cache for Navidrome API responses. Cache persists until manually cleared."""
     
-    def __init__(self, default_ttl_seconds: int = 300):  # 5 minutes default
-        self.default_ttl = default_ttl_seconds
-        self._cache: Dict[str, Tuple[float, any]] = {}  # key -> (timestamp, data)
+    def __init__(self):
+        self._cache: Dict[str, any] = {}  # key -> data
     
-    def _is_expired(self, timestamp: float, ttl: Optional[int] = None) -> bool:
-        """Check if a cached entry has expired."""
-        max_age = ttl if ttl is not None else self.default_ttl
-        return time.time() - timestamp > max_age
-    
-    def get(self, key: str, ttl: Optional[int] = None) -> Optional[any]:
-        """Get cached data if it exists and hasn't expired."""
-        if key not in self._cache:
-            return None
-        
-        timestamp, data = self._cache[key]
-        if self._is_expired(timestamp, ttl):
-            del self._cache[key]
-            return None
-        
-        return data
+    def get(self, key: str) -> Optional[any]:
+        """Get cached data if it exists."""
+        return self._cache.get(key, None)
     
     def set(self, key: str, data: any) -> None:
-        """Store data in cache with current timestamp."""
-        self._cache[key] = (time.time(), data)
+        """Store data in cache."""
+        self._cache[key] = data
     
     def clear(self) -> None:
         """Clear all cached data."""
         self._cache.clear()
-    
-    def clear_expired(self, ttl: Optional[int] = None) -> None:
-        """Remove expired entries from cache."""
-        current_time = time.time()
-        max_age = ttl if ttl is not None else self.default_ttl
-        expired_keys = [
-            key for key, (timestamp, _) in self._cache.items() 
-            if current_time - timestamp > max_age
-        ]
-        for key in expired_keys:
-            del self._cache[key]
 
 
 # Global cache instance - shared across all SubsonicClient instances
 _global_cache: Optional[NavidromeCache] = None
 
-def _get_global_cache(enable_cache: bool = True, cache_ttl: int = 300) -> Optional[NavidromeCache]:
+def _get_global_cache(enable_cache: bool = True) -> Optional[NavidromeCache]:
     """Get or create the global cache instance."""
     global _global_cache
     if not enable_cache:
         return None
     if _global_cache is None:
-        _global_cache = NavidromeCache(cache_ttl)
+        _global_cache = NavidromeCache()
     return _global_cache
 
 def _clear_global_cache() -> None:
@@ -272,7 +247,6 @@ class SubsonicClient:
         app_name: str = "PicardNavidrome",
         verify_ssl: bool = True,
         timeout_seconds: int = 15,
-        cache_ttl_seconds: int = 300,  # 5 minutes default
         enable_cache: bool = True,
     ) -> None:
         if base_url.endswith("/"):
@@ -287,8 +261,7 @@ class SubsonicClient:
         
         # Initialize cache - use global cache for persistence across instances
         self.enable_cache = enable_cache
-        self.cache_ttl = cache_ttl_seconds
-        self.cache = _get_global_cache(enable_cache, cache_ttl_seconds)
+        self.cache = _get_global_cache(enable_cache)
     
     def clear_cache(self) -> None:
         """Clear all cached data."""
@@ -626,7 +599,6 @@ class NavidromeOptionsPage(OptionsPage):
         _safe_create_option(BoolOption, "setting", "navidrome_verify_ssl", True),
         _safe_create_option(BoolOption, "setting", "navidrome_save_credentials", False),
         _safe_create_option(BoolOption, "setting", "navidrome_enable_cache", True),
-        _safe_create_option(IntOption, "setting", "navidrome_cache_ttl", 300),
     ] if opt is not None]
 
     def __init__(self, parent=None):
@@ -668,51 +640,16 @@ class NavidromeOptionsPage(OptionsPage):
         # Add spacing before cache settings
         self.layout.addRow("", QLabel(""))  # Empty row for spacing
         
-        # Cache settings - on one line with help symbol
-        cache_widget = QWidget()
-        cache_layout = QHBoxLayout(cache_widget)
-        cache_layout.setContentsMargins(0, 0, 0, 0)
-        
-        self.enable_cache = QCheckBox("Enable caching")
-        cache_layout.addWidget(self.enable_cache)
-        
-        cache_layout.addWidget(QLabel("   TTL:"))
-        
-        self.cache_ttl = QLineEdit(self)
-        self.cache_ttl.setMaximumWidth(60)  # Smaller input field
-        self.cache_ttl.setPlaceholderText("300")
+        # Cache settings - simple checkbox
+        self.enable_cache = QCheckBox("Enable caching (persists until manually cleared)")
         try:
-            self.cache_ttl.setToolTip(
-                "Cache Time To Live (TTL) in seconds.\n"
-                "How long to keep cached data before fetching fresh data.\n"
-                "Default: 300 seconds (5 minutes)\n"
-                "Higher values = longer cache, less server requests\n"
-                "Lower values = fresher data, more server requests"
+            self.enable_cache.setToolTip(
+                "Enable in-memory caching to speed up subsequent library fetches.\n"
+                "Cache persists until you manually clear it using the 'Clear Cache' button."
             )
         except Exception:
             pass
-        cache_layout.addWidget(self.cache_ttl)
-        
-        cache_layout.addWidget(QLabel("sec"))
-        
-        # Add help symbol with tooltip
-        help_label = QLabel("?")
-        try:
-            help_label.setStyleSheet("color: blue; font-weight: bold; font-size: 14px;")
-            help_label.setToolTip(
-                "Cache Time To Live (TTL) in seconds.\n"
-                "How long to keep cached data before fetching fresh data.\n"
-                "Default: 300 seconds (5 minutes)\n"
-                "Higher values = longer cache, less server requests\n"
-                "Lower values = fresher data, more server requests"
-            )
-        except Exception:
-            pass
-        cache_layout.addWidget(help_label)
-        
-        cache_layout.addStretch()  # Push everything to the left
-        
-        self.layout.addRow("Caching:", cache_widget)
+        self.layout.addRow("", self.enable_cache)
 
         self.browse_button = QPushButton("Edit Playlists in Navidrome...", self)
         self.browse_button.clicked.connect(self._open_browser)  # type: ignore[attr-defined]
@@ -746,10 +683,6 @@ class NavidromeOptionsPage(OptionsPage):
         except Exception:
             pass
         try:
-            self.cache_ttl.setText(str(config.setting["navidrome_cache_ttl"]))
-        except Exception:
-            pass
-        try:
             self._update_conn_status(connected=None, test=True)
         except Exception:
             pass
@@ -768,11 +701,6 @@ class NavidromeOptionsPage(OptionsPage):
             config.setting["navidrome_enable_cache"] = bool(self.enable_cache.isChecked())
         except Exception:
             pass
-        try:
-            cache_ttl_text = self.cache_ttl.text().strip()
-            config.setting["navidrome_cache_ttl"] = int(cache_ttl_text) if cache_ttl_text.isdigit() else 300
-        except Exception:
-            config.setting["navidrome_cache_ttl"] = 300
         try:
             self._update_conn_status(connected=None, test=True)
         except Exception:
@@ -872,18 +800,13 @@ class NavidromeOptionsPage(OptionsPage):
                 enable_cache = bool(config.setting["navidrome_enable_cache"])
             except (KeyError, ValueError):
                 enable_cache = True
-            try:
-                cache_ttl = int(config.setting["navidrome_cache_ttl"])
-            except (KeyError, ValueError):
-                cache_ttl = 300
             client = SubsonicClient(
                 base_url=base_url, 
                 username=username, 
                 password=password, 
                 app_name=app_name, 
                 verify_ssl=verify_ssl,
-                enable_cache=enable_cache,
-                cache_ttl_seconds=cache_ttl
+                enable_cache=enable_cache
             )
             dlg = NavidromeBrowserDialog(None, client)
             try:
@@ -911,18 +834,13 @@ class NavidromeOptionsPage(OptionsPage):
                 enable_cache = bool(config.setting["navidrome_enable_cache"])
             except (KeyError, ValueError):
                 enable_cache = True
-            try:
-                cache_ttl = int(config.setting["navidrome_cache_ttl"])
-            except (KeyError, ValueError):
-                cache_ttl = 300
             client = SubsonicClient(
                 base_url=base_url, 
                 username=username, 
                 password=password, 
                 app_name=app_name, 
                 verify_ssl=verify_ssl,
-                enable_cache=enable_cache,
-                cache_ttl_seconds=cache_ttl
+                enable_cache=enable_cache
             )
             dlg = NavidromeLibraryDialog(None, client)
             try:
@@ -1343,6 +1261,15 @@ class NavidromeBrowserDialog(QDialog):
             pass
         left_controls.addWidget(self.public_checkbox)
 
+        self.owner_label = QLabel("Owner: ", self)
+        try:
+            self.owner_label.setWordWrap(True)
+            self.owner_label.setStyleSheet("color: #1976d2; padding: 4px;")
+            self.owner_label.setToolTip("Playlist owner")
+        except Exception:
+            pass
+        left_controls.addWidget(self.owner_label)
+
         left_container = QWidget(self)
         left_container.setLayout(left_controls)
         try:
@@ -1394,6 +1321,14 @@ class NavidromeBrowserDialog(QDialog):
             pass
         right_controls.addWidget(self.randomize_button)
 
+        self.add_songs_button = QPushButton("➕ Add new Track", self)
+        try:
+            self.add_songs_button.setToolTip("Add new tracks to the selected playlist")
+            self.add_songs_button.setStyleSheet("color: #2e7d32;")
+        except Exception:
+            pass
+        right_controls.addWidget(self.add_songs_button)
+
         self.remove_track_button = QPushButton("− Remove Track", self)
         try:
             self.remove_track_button.setToolTip("Remove the selected track from this playlist")
@@ -1427,6 +1362,7 @@ class NavidromeBrowserDialog(QDialog):
             self.rename_button.clicked.connect(self._rename_playlist)  # type: ignore[attr-defined]
             self.delete_button.clicked.connect(self._delete_playlist)  # type: ignore[attr-defined]
             self.public_checkbox.stateChanged.connect(self._toggle_public)  # type: ignore[attr-defined]
+            self.add_songs_button.clicked.connect(self._add_new_songs)  # type: ignore[attr-defined]
             self.randomize_button.clicked.connect(self._randomize_tracks)  # type: ignore[attr-defined]
             self.remove_track_button.clicked.connect(self._remove_selected_track)  # type: ignore[attr-defined]
         except Exception:
@@ -1440,6 +1376,8 @@ class NavidromeBrowserDialog(QDialog):
 
         self._updating_ui = False
         self._current_playlist_tracks = []  # Store current tracks with IDs
+        self._newly_added_track_ids: Set[str] = set()  # Track IDs of newly added tracks for green highlighting
+        self._last_selected_playlist_id: str = ""  # Track last selected playlist to detect switching
         self._load_playlists()
 
     def _update_editing_label(self, name: str) -> None:
@@ -1951,16 +1889,41 @@ class NavidromeBrowserDialog(QDialog):
         self.tracks_list.clear()  # Clear list widget
         self._current_playlist_tracks = []
         if row < 0 or row >= len(getattr(self, "_playlists", [])):
+            # Clear when no playlist is selected
+            self._newly_added_track_ids = set()
+            self._last_selected_playlist_id = ""
+            try:
+                self.owner_label.setText("<b>Owner:</b> ")
+            except Exception:
+                pass
+            # Disable all modification buttons when no playlist is selected
+            try:
+                self.rename_button.setEnabled(False)
+                self.delete_button.setEnabled(False)
+                self.public_checkbox.setEnabled(False)
+                self.add_songs_button.setEnabled(False)
+                self.remove_track_button.setEnabled(False)
+                self.randomize_button.setEnabled(False)
+            except Exception:
+                pass
             return
         pl = self._playlists[row]
+        playlist_id = str(pl.get("id", ""))
+        
+        # Clear green highlighting when switching to a different playlist
+        if playlist_id != self._last_selected_playlist_id and self._last_selected_playlist_id != "":
+            self._newly_added_track_ids = set()
+        self._last_selected_playlist_id = playlist_id
+        
         try:
             self._update_editing_label(pl.get('name', '(unnamed)'))
         except Exception:
             pass
-        playlist_id = str(pl.get("id", ""))
         if not playlist_id:
             return
         self._refresh_public_checkbox()
+        self._refresh_owner_label()
+        self._update_modification_buttons_state()
         try:
             entries = self.client.get_playlist_tracks(playlist_id)
         except Exception as exc:
@@ -2084,6 +2047,13 @@ class NavidromeBrowserDialog(QDialog):
                     pass
                 self.tracks_list.setItemWidget(item, row_w)
                 
+                # Highlight newly added tracks in green
+                if track_id in self._newly_added_track_ids:
+                    try:
+                        row_w.setStyleSheet("background-color: #c8e6c9;")  # Light green background
+                    except Exception:
+                        pass
+                
                 # Make widgets transparent for mouse events (except drag handles)
                 try:
                     row_w.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # type: ignore
@@ -2125,9 +2095,71 @@ class NavidromeBrowserDialog(QDialog):
                 pass
         self._updating_ui = False
 
+    def _refresh_owner_label(self) -> None:
+        """Update the owner label to show the playlist owner with bold 'Owner:' and normal username."""
+        idx, pl = self._current_playlist()
+        try:
+            owner = pl.get("owner", "Unknown")
+            # Use HTML to make "Owner:" bold and keep username normal
+            html_text = f'<b>Owner:</b> {owner}'
+            self.owner_label.setText(html_text)
+        except Exception:
+            try:
+                self.owner_label.setText("<b>Owner:</b> Unknown")
+            except Exception:
+                pass
+
+    def _is_current_user_owner(self) -> bool:
+        """Check if the current user owns the selected playlist."""
+        idx, pl = self._current_playlist()
+        if idx < 0:
+            return False
+        try:
+            owner = pl.get("owner", "")
+            current_user = self.client.username
+            return str(owner).lower() == str(current_user).lower()
+        except Exception:
+            return False
+
+    def _update_modification_buttons_state(self) -> None:
+        """Enable/disable modification buttons based on playlist ownership."""
+        is_owner = self._is_current_user_owner()
+        
+        # Disable all modification buttons if user is not the owner
+        try:
+            self.rename_button.setEnabled(is_owner)
+            self.delete_button.setEnabled(is_owner)
+            self.public_checkbox.setEnabled(is_owner)
+            self.add_songs_button.setEnabled(is_owner)
+            self.remove_track_button.setEnabled(is_owner)
+            self.randomize_button.setEnabled(is_owner)
+            
+            # Update tooltips to explain why buttons are disabled
+            if not is_owner:
+                self.rename_button.setToolTip("Only the playlist owner can rename this playlist")
+                self.delete_button.setToolTip("Only the playlist owner can delete this playlist")
+                self.public_checkbox.setToolTip("Only the playlist owner can change visibility")
+                self.add_songs_button.setToolTip("Only the playlist owner can add tracks")
+                self.remove_track_button.setToolTip("Only the playlist owner can remove tracks")
+                self.randomize_button.setToolTip("Only the playlist owner can randomize tracks")
+            else:
+                # Restore original tooltips
+                self.rename_button.setToolTip("Rename the selected playlist")
+                self.delete_button.setToolTip("Delete the selected playlist")
+                self.public_checkbox.setToolTip("Toggle playlist visibility")
+                self.add_songs_button.setToolTip("Add new tracks to the selected playlist")
+                self.remove_track_button.setToolTip("Remove the selected track from this playlist")
+                self.randomize_button.setToolTip("Shuffle the track order randomly")
+        except Exception:
+            pass
+
     def _rename_playlist(self) -> None:
         idx, pl = self._current_playlist()
         if idx < 0:
+            return
+        # Safety check: only allow owner to rename
+        if not self._is_current_user_owner():
+            QMessageBox.warning(self, "Navidrome", "Only the playlist owner can rename this playlist.")
             return
         playlist_id = str(pl.get("id", ""))
         cur_name = pl.get("name", "")
@@ -2156,6 +2188,10 @@ class NavidromeBrowserDialog(QDialog):
     def _delete_playlist(self) -> None:
         idx, pl = self._current_playlist()
         if idx < 0:
+            return
+        # Safety check: only allow owner to delete
+        if not self._is_current_user_owner():
+            QMessageBox.warning(self, "Navidrome", "Only the playlist owner can delete this playlist.")
             return
         playlist_id = str(pl.get("id", ""))
         name = pl.get("name", "(unnamed)")
@@ -2187,6 +2223,16 @@ class NavidromeBrowserDialog(QDialog):
             return
         idx, pl = self._current_playlist()
         if idx < 0:
+            return
+        # Safety check: only allow owner to change visibility
+        if not self._is_current_user_owner():
+            QMessageBox.warning(self, "Navidrome", "Only the playlist owner can change visibility.")
+            self._updating_ui = True
+            try:
+                self.public_checkbox.setChecked(self._truthy(pl.get("public")))
+            except Exception:
+                pass
+            self._updating_ui = False
             return
         playlist_id = str(pl.get("id", ""))
         make_public = bool(self.public_checkbox.isChecked())
@@ -2226,9 +2272,17 @@ class NavidromeBrowserDialog(QDialog):
 
     def _randomize_tracks(self) -> None:
         """Shuffle the track order randomly and save to Navidrome."""
+        # Clear green highlighting when user randomizes tracks
+        self._newly_added_track_ids = set()
+        
         import random
         idx, pl = self._current_playlist()
         if idx < 0:
+            return
+        
+        # Safety check: only allow owner to randomize
+        if not self._is_current_user_owner():
+            QMessageBox.warning(self, "Navidrome", "Only the playlist owner can randomize tracks.")
             return
 
         try:
@@ -2276,8 +2330,16 @@ class NavidromeBrowserDialog(QDialog):
 
     def _remove_selected_track(self) -> None:
         """Remove the selected track from the playlist."""
+        # Clear green highlighting when user removes a track
+        self._newly_added_track_ids = set()
+        
         idx, pl = self._current_playlist()
         if idx < 0:
+            return
+        
+        # Safety check: only allow owner to remove tracks
+        if not self._is_current_user_owner():
+            QMessageBox.warning(self, "Navidrome", "Only the playlist owner can remove tracks.")
             return
 
         current_row = self.tracks_list.currentRow()
@@ -2320,10 +2382,87 @@ class NavidromeBrowserDialog(QDialog):
         except Exception:
             pass
 
-    def _on_tracks_reordered(self) -> None:
-        """Handle track reordering via drag and drop."""
+    def _add_new_songs(self) -> None:
+        """Open library dialog to add new songs to the selected playlist."""
         idx, pl = self._current_playlist()
         if idx < 0:
+            QMessageBox.information(self, "Navidrome", "No playlist selected!")
+            return
+        
+        # Safety check: only allow owner to add tracks
+        if not self._is_current_user_owner():
+            QMessageBox.warning(self, "Navidrome", "Only the playlist owner can add tracks.")
+            return
+        
+        # Open the library dialog for adding songs
+        try:
+            dialog = NavidromeLibraryDialogForAddingSongs(self, self.client)
+            if dialog.exec_() == QDialog.Accepted:
+                new_track_ids = dialog.selected_track_ids
+                if not new_track_ids:
+                    return
+                
+                # Get current track IDs
+                current_track_ids = []
+                for i in range(self.tracks_list.count()):
+                    item = self.tracks_list.item(i)
+                    if item is None:
+                        continue
+                    try:
+                        track_id = str(item.data(Qt.UserRole))  # type: ignore
+                        if track_id:
+                            current_track_ids.append(track_id)
+                    except Exception:
+                        continue
+                
+                # Combine existing tracks with new ones
+                all_track_ids = current_track_ids + new_track_ids
+                
+                # Update playlist on server
+                playlist_id = str(pl.get("id", ""))
+                try:
+                    # Delete current playlist
+                    self.client.delete_playlist(playlist_id)
+                    # Recreate with all tracks
+                    new_name = pl.get("name", "Updated Playlist")
+                    new_pl_id = self.client.create_playlist(new_name, all_track_ids)
+                    if new_pl_id:
+                        # Update our local data
+                        self._playlists[idx]["id"] = new_pl_id
+                        
+                        # Store newly added track IDs for green highlighting AFTER updating playlist ID
+                        self._newly_added_track_ids = set(new_track_ids)
+                        
+                        # Update the last selected playlist ID to the NEW playlist ID
+                        # This prevents _on_playlist_selected from clearing the highlighting
+                        self._last_selected_playlist_id = new_pl_id
+                        
+                        # Reload tracks to reflect additions
+                        self._on_playlist_selected(idx)
+                        self.info_label.setText(f"Added {len(new_track_ids)} track(s) successfully!")
+                        try:
+                            self.info_label.setStyleSheet("color: #2e7d32; font-size: 14px; font-weight: bold;")
+                        except Exception:
+                            pass
+                except Exception as exc:
+                    QMessageBox.critical(self, "Navidrome", f"Failed to add tracks: {exc}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Navidrome", f"Failed to open library dialog: {exc}")
+
+    def _on_tracks_reordered(self) -> None:
+        """Handle track reordering via drag and drop."""
+        # Clear green highlighting when user reorders tracks
+        self._newly_added_track_ids = set()
+        
+        idx, pl = self._current_playlist()
+        if idx < 0:
+            return
+        
+        # Safety check: only allow owner to reorder tracks
+        if not self._is_current_user_owner():
+            QMessageBox.warning(self, "Navidrome", "Only the playlist owner can reorder tracks.")
+            # Reload the playlist to restore original order
+            self._on_playlist_selected(self.playlists_list.currentRow())
             return
 
         try:
@@ -3418,6 +3557,63 @@ class NavidromeLibraryDialog(QDialog):
 
 
 # -----------------------------
+# Library dialog for adding songs to existing playlist
+# -----------------------------
+class NavidromeLibraryDialogForAddingSongs(NavidromeLibraryDialog):
+    """Same as NavidromeLibraryDialog but with 'Apply' button instead of 'Continue and Review playlist'."""
+    def __init__(self, parent: Optional[QWidget], client: SubsonicClient) -> None:
+        super().__init__(parent, client)
+        self.setWindowTitle("Select Tracks from Navidrome Library")
+        self.selected_track_ids: List[str] = []
+        
+        # Replace the "Continue and Review playlist" button with "Apply"
+        try:
+            self.continue_button.setText("Apply")
+            self.continue_button.setToolTip("Add selected tracks to playlist")
+            # Disconnect old connection and connect new one
+            try:
+                self.continue_button.clicked.disconnect()  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            self.continue_button.clicked.connect(self._apply_selection)  # type: ignore[attr-defined]
+        except Exception:
+            pass
+    
+    def _apply_selection(self) -> None:
+        """Collect selected track IDs and close dialog."""
+        # Safety: Require a working connection first
+        try:
+            if not self.client.ping():
+                QMessageBox.warning(self, "Navidrome", "Connection check failed. Please open Options > Plugins > Navidrome and click 'Test Connection' first.")
+                return
+        except Exception as exc:
+            QMessageBox.warning(self, "Navidrome", f"Connection check failed: {exc}")
+            return
+        
+        # Gather selected song ids in current table order
+        selected_ids: List[str] = []
+        for r in range(self.table.rowCount()):
+            try:
+                it_chk = self.table.item(r, self.COL_FILENAME)
+                if it_chk is None or it_chk.checkState() != Qt.Checked:  # type: ignore
+                    continue
+            except Exception:
+                continue
+            sid = self._song_id_for_row(r)
+            if not sid:
+                continue
+            selected_ids.append(sid)
+        
+        if not selected_ids:
+            QMessageBox.information(self, "Navidrome", "No tracks selected!")
+            return
+        
+        # Store the selected IDs and accept the dialog
+        self.selected_track_ids = selected_ids
+        self.accept()
+
+
+# -----------------------------
 # Options wrapper dialog for "Connect..."
 # -----------------------------
 class NavidromeOptionsDialog(QDialog):
@@ -3494,17 +3690,12 @@ def _open_library_dialog():
             enable_cache = bool(config.setting["navidrome_enable_cache"])
         except (KeyError, ValueError):
             enable_cache = True
-        try:
-            cache_ttl = int(config.setting["navidrome_cache_ttl"])
-        except (KeyError, ValueError):
-            cache_ttl = 300
         client = SubsonicClient(
             base_url=base_url, 
             username=username, 
             password=password, 
             verify_ssl=verify_ssl,
-            enable_cache=enable_cache,
-            cache_ttl_seconds=cache_ttl
+            enable_cache=enable_cache
         )
         dlg = NavidromeLibraryDialog(None, client)
         try:
@@ -3817,13 +4008,20 @@ class NavidromeChangelogDialog(QDialog):
         add_version(
             "0.7.1",
             [
-                "🎨 UI Polish: Removed playlist ID from creation success messages for cleaner UX",
-                "📊 NEW: Dynamic track counter in library browser showing 'X of Y tracks selected'",
-                "💾 UX Improvement: Automatic saving in Connect dialog - no more manual Save button",
-                "🔧 UX Improvement: Enhanced connection feedback with success/error messages",
-                "🧹 Context Menu Cleanup: Removed 'List Playlists' and 'Browse Library' from right-click menu",
-                "🎯 Streamlined UI: Only essential playlist creation actions remain in context menu",
-                "🔧 Technical: Improved connection status handling and user feedback",
+                "➕ NEW: 'Add new Track' button to add songs to existing playlists",
+                "🎯 NEW: Dedicated dialog for adding tracks with 'Apply' button (reuses library browser UI)",
+                "✨ NEW: Green highlighting for newly added tracks (visible until playlist switch or modification)",
+                "👤 NEW: Owner label showing playlist ownership (e.g., 'Owner: username')",
+                "🔒 NEW: Ownership-based permission system - non-owners have read-only access to public playlists",
+                "🚫 SECURITY: All modification buttons disabled for playlists you don't own",
+                "🚫 SECURITY: Rename, Delete, Add Track, Remove Track, Randomize, and Make Public restricted to owners",
+                "🔔 UX: Clear tooltips explain why buttons are disabled for non-owned playlists",
+                "💾 CACHE: Removed TTL expiration - cache now persists until manually cleared",
+                "💾 CACHE: Simplified caching system for better performance and consistency",
+                "🎨 UI: Track Actions reorganized - Randomize, Add new Track, Remove Track order",
+                "🎨 UI: Owner label displays with bold 'Owner:' and normal username in user-friendly blue",
+                "🔧 Technical: Ownership checking on all modification operations",
+                "🔧 Technical: Cache simplification removes TTL logic and parameters",
                 "Bugfixes and improvements"
             ],
         )
@@ -3831,21 +4029,16 @@ class NavidromeChangelogDialog(QDialog):
             "0.7.0",
             [
                 "🚀 NEW: Smart caching system for dramatically faster subsequent fetches",
-                "⚙️ Cache configuration: Enable/disable caching and configurable TTL (Time To Live)",
                 "🔧 Clear Cache button in options for testing and troubleshooting",
                 "📈 Performance boost: Second and subsequent library fetches are much faster",
-                "💾 In-memory cache with automatic expiration to keep data fresh",
+                "💾 In-memory cache for optimal performance",
                 "🎯 Cache keys based on request parameters for optimal hit rates",
                 "🔧 Enhanced SubsonicClient with cache statistics and management",
                 "📊 FIXED: Progress bar now shows accurate 100% completion when all songs are fetched",
-                "🎨 UI Polish: Cache settings on one line with help tooltip (?) symbol",
-                "🎨 UI Polish: Smaller TTL input field with placeholder text",
-                "🎨 UI Polish: About button removed from Connect dialog (still in Settings)",
                 "🎨 UI Polish: Enhanced progress dialog with percentage and window title updates",
                 "🎨 UI Polish: Better status text showing current/total counts",
                 "🔧 Technical: Two-pass algorithm for accurate progress calculation",
                 "🔧 Technical: Global cache sharing across all SubsonicClient instances",
-                "🔧 Technical: Debug logging for cache hit/miss tracking",
                 "Bugfixes and improvements"
             ],
         )
@@ -4546,18 +4739,13 @@ try:
                         enable_cache = bool(config.setting["navidrome_enable_cache"])
                     except (KeyError, ValueError):
                         enable_cache = True
-                    try:
-                        cache_ttl = int(config.setting["navidrome_cache_ttl"])
-                    except (KeyError, ValueError):
-                        cache_ttl = 300
                     client = SubsonicClient(
                         base_url=base_url, 
                         username=username, 
                         password=password, 
                         app_name=app_name, 
                         verify_ssl=verify_ssl,
-                        enable_cache=enable_cache,
-                        cache_ttl_seconds=cache_ttl
+                        enable_cache=enable_cache
                     )
                 except Exception as exc:
                     QMessageBox.critical(parent, "Navidrome", f"Unable to connect: {exc}")
